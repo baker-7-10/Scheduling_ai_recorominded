@@ -2,13 +2,14 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Optional
+import os
 
 from ai.interest_engine import calculate_interest
 from supabase_client import supabase
 from scheduler.jobs import start_scheduler
 
 
-app = FastAPI()
+app = FastAPI(title="Interest Engine API")
 
 app.add_middleware(
     CORSMiddleware,
@@ -30,9 +31,13 @@ class InterestInput(BaseModel):
     user_id: str
 
 
+@app.get("/")
+def health_check():
+    return {"status": "ok"}
+
+
 @app.post("/calculate_interest")
 def calculate_interest_api(payload: InterestInput):
-
     result = calculate_interest(
         time_sec=payload.time_sec,
         product_name=payload.product_name,
@@ -55,5 +60,7 @@ def calculate_interest_api(payload: InterestInput):
 
 @app.on_event("startup")
 def startup_event():
-    start_scheduler()
-    print("Scheduler started...")
+    # يمنع تكرار تشغيل Scheduler محليًا
+    if os.environ.get("RENDER"):
+        start_scheduler()
+        print("Scheduler started on Render")
